@@ -1,0 +1,12 @@
+services:
+  clause-desk:
+    build: .
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      # 校稿存档（SQLite）持久化：重建容器后存档仍在
+      - archive-data:/app/data
+
+volumes:
+  archive-data:
