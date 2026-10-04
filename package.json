@@ -1,0 +1,12 @@
+{
+  "name": "clause-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "条款重排校稿台前端回归测试（存档保存的请求归属）",
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  }
+}

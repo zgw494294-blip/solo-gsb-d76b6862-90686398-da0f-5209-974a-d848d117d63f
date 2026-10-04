@@ -399,23 +399,35 @@ function syncArchiveBanner() {
 // 回执只确认提交时的快照——期间又有修改的，仍提示未存档。
 archiveSaveBtn.addEventListener("click", async () => {
   if (state.archiving || state.restoring) return; // 忽略等待期间的重复提交
+  // 请求归属：整次保存（含首次保存前的预读取）只属于发起当刻的草稿世代；
+  // 读取延迟期间若已重新导入或确认恢复（世代推进），本次保存连同预读取一并失效——
+  // 预读取的成功 / 失败与收尾都不得触发 PUT，也不得改动新稿的版本、未存档标记、
+  // 提示或新保存的等待状态（在途态已由重新导入 / 恢复复位，这里什么都不能再碰）
+  const epoch = state.epoch;
   // 首次保存前尚未读取过版本：先读取拿到槽内当前版本（空槽为 0），再据此保存
   if (state.archiveVersion === null) {
     state.archiving = true;
     syncArchiveUi();
+    let data;
     try {
-      const data = await api("/api/archive", null, "GET");
-      if (typeof data.version !== "number") throw new Error("bad archive read");
-      state.archiveVersion = data.version;
+      data = await api("/api/archive", null, "GET");
     } catch (e) {
+      if (epoch !== state.epoch) return; // 换稿 / 恢复后预读取才失败：静默作废
       state.archiving = false;
       state.archiveError = errorList(e);
       syncArchiveUi();
       return;
     }
+    if (epoch !== state.epoch) return; // 换稿 / 恢复后旧读取才返回：不得据此发 PUT
+    if (typeof data.version !== "number") {
+      state.archiving = false;
+      state.archiveError = ["存档响应正文不完整，请重试。"];
+      syncArchiveUi();
+      return;
+    }
+    state.archiveVersion = data.version;
     state.archiving = false;
   }
-  const epoch = state.epoch;
   const rev = state.rev;
   const version = state.archiveVersion;
   const snapshot = archiveSnapshot(); // 提交当刻的快照；之后的修改不影响已发出的请求
